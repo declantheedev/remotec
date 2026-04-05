@@ -18,6 +18,8 @@ class AuthScreen extends ConsumerStatefulWidget {
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   late bool isLogin;
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   @override
   void initState() {
@@ -25,10 +27,60 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     isLogin = widget.initialTab == 'login';
   }
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   void _toggleTab(bool login) {
     setState(() {
       isLogin = login;
+      // Optionally clear fields on tab switch
+      _emailController.clear();
+      _passwordController.clear();
     });
+  }
+
+  bool _isEmailValid(String email) {
+    if (email.isEmpty) return false;
+    return RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email);
+  }
+
+  String? _emailFeedback() {
+    final email = _emailController.text;
+    if (email.isEmpty) return null;
+    if (!_isEmailValid(email)) return "Invalid email address";
+    return null;
+  }
+
+  Color? _emailBorderColor(bool isDark) {
+    final email = _emailController.text;
+    if (email.isEmpty) return null; // use default
+    if (!_isEmailValid(email)) return AppColors.error;
+    return AppColors.success;
+  }
+
+  String? _passwordFeedback() {
+    final pass = _passwordController.text;
+    if (pass.isEmpty) return null;
+    if (pass.length < 6) return "Password is too short";
+    if (pass.length < 8) return "Password is too weak";
+    return "Excellent";
+  }
+
+  Color? _passwordBorderColor(bool isDark) {
+    final pass = _passwordController.text;
+    if (pass.isEmpty) return null;
+    if (pass.length < 8) return AppColors.error;
+    return AppColors.success;
+  }
+
+  Color _passwordFeedbackColor() {
+    final pass = _passwordController.text;
+    if (pass.length < 8) return AppColors.error;
+    return AppColors.success;
   }
 
   @override
@@ -132,6 +184,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         _buildGlassInput(
                           isDark: isDark,
                           hint: 'Enter Your Email',
+                          controller: _emailController,
+                          onChanged: (_) => setState(() {}),
+                          borderColorOverride: _emailBorderColor(isDark),
+                          feedbackText: _emailFeedback(),
+                          feedbackColor: AppColors.error,
                         ),
 
                         const SizedBox(height: 20),
@@ -141,6 +198,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           isDark: isDark,
                           hint: 'Password',
                           obscureText: true,
+                          controller: _passwordController,
+                          onChanged: (_) => setState(() {}),
+                          borderColorOverride: _passwordBorderColor(isDark),
+                          feedbackText: _passwordFeedback(),
+                          feedbackColor: _passwordFeedbackColor(),
                         ),
 
                         const SizedBox(height: 12),
@@ -246,34 +308,63 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Widget _buildGlassInput({
     required bool isDark,
     required String hint,
+    required TextEditingController controller,
+    required void Function(String) onChanged,
+    Color? borderColorOverride,
+    String? feedbackText,
+    Color? feedbackColor,
     bool obscureText = false,
   }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: TextFormField(
-          obscureText: obscureText,
-          style: AppTextStyles.bodyLarge.copyWith(
-            color: isDark ? AppColors.white : AppColors.dark,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            filled: true,
-            fillColor: isDark
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.05),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: isDark
-                    ? Colors.white.withOpacity(0.2)
-                    : Colors.black.withOpacity(0.2),
+    final defaultBorderColor = isDark
+        ? Colors.white.withOpacity(0.2)
+        : Colors.black.withOpacity(0.2);
+    final borderColor = borderColorOverride ?? defaultBorderColor;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: TextFormField(
+              controller: controller,
+              onChanged: onChanged,
+              obscureText: obscureText,
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: isDark ? AppColors.white : AppColors.dark,
+              ),
+              decoration: InputDecoration(
+                hintText: hint,
+                filled: true,
+                fillColor: isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.05),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: borderColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: borderColor, width: 1.5),
+                ),
               ),
             ),
           ),
         ),
-      ),
+        if (feedbackText != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Text(
+              feedbackText,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: feedbackColor ?? AppColors.error,
+              ),
+            ),
+          ),
+        ]
+      ],
     );
   }
 
